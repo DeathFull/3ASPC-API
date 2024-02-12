@@ -49,6 +49,7 @@ public class Startup(IConfiguration configuration)
         services.AddScoped<UserService>();
         services.AddScoped<ProductService>();
         services.AddScoped<CartService>();
+        services.AddScoped<CartItemService>();
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {

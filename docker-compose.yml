@@ -4,7 +4,7 @@ services:
   sql_server:
     image: rapidfort/microsoft-sql-server-2019-ib:latest
     environment:
-      SA_PASSWORD: Admin1234@
+      SA_PASSWORD: monsupermotdepasse
       ACCEPT_EULA: Y
       MSSQL_PID: Express
     ports:

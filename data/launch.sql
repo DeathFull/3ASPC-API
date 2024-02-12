@@ -39,8 +39,10 @@ CREATE TABLE Carts
 CREATE TABLE CartItems
 (
     Id        INT PRIMARY KEY IDENTITY,
+    CartId    INT NOT NULL,
     ProductId INT NOT NULL,
     Quantity  INT NOT NULL,
-    FOREIGN KEY (ProductId) REFERENCES Products (Id)
+    FOREIGN KEY (ProductId) REFERENCES Products (Id),
+    FOREIGN KEY (CartId) REFERENCES Carts (Id)
 );
 
