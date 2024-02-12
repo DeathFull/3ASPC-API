@@ -1,26 +1,90 @@
+using System.Text;
 using _3ASPC_API.database;
 using _3ASPC_API.services;
+using _3ASPC_API.utils;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
-var builder = WebApplication.CreateBuilder(args);
+namespace _3ASPC_API;
 
-builder.Services.AddControllers();
-builder.Services.AddDbContext<ApiContext>(opt => opt.UseSqlServer("Data Source=localhost;Initial Catalog=ibay;User Id=SA;Password=Admin1234@;TrustServerCertificate=True;Encrypt=False;", optionsBuilder => optionsBuilder.EnableRetryOnFailure()));
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddScoped<UserService>();
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
+public class Startup(IConfiguration configuration)
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    app.UseDeveloperExceptionPage();
-}
+    public IConfiguration Configuration { get; } = configuration;
 
-app.MapGet("/", () => "Hello World!");
-app.UseRouting();
-app.UseAuthorization();
-app.MapControllers();
-app.Run();
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddControllers();
+        services.AddDbContext<ApiContext>(opt =>
+            opt.UseSqlServer(
+                Configuration.GetConnectionString("DefaultConnection"),
+                optionsBuilder => optionsBuilder.EnableRetryOnFailure()));
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerGen(
+            opt =>
+            {
+                opt.SwaggerDoc("v1", new OpenApiInfo { Title = "3ASPC-API", Version = "v1" });
+                opt.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Description = "JWT token must be provided",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.Http,
+                    Scheme = JwtBearerDefaults.AuthenticationScheme
+                });
+                opt.OperationFilter<AuthorizeCheckOperationFilter>();
+            });
+
+        services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(builder =>
+            {
+                builder.AllowAnyOrigin()
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+
+        services.AddScoped<UserService>();
+        services.AddScoped<ProductService>();
+        services.AddScoped<CartService>();
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = Configuration["Jwt:Issuer"],
+                    ValidAudience = Configuration["Jwt:Audience"],
+                    IssuerSigningKey =
+                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Jwt:Key"] ?? string.Empty))
+                };
+            });
+    }
+
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        app.UseRouting();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapGet("/", () => "Hello World!");
+            endpoints.MapControllers();
+        });
+
+        if (env.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+            app.UseDeveloperExceptionPage();
+        }
+
+        app.UseHttpsRedirection();
+    }
+}
